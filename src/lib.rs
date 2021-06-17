@@ -13,11 +13,8 @@ use protos::netmessages::*;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-pub mod events {
-    pub use super::format::*;
-    pub use super::protos::netmessages::*;
-    pub use super::protos::cstrike15_usermessages::*;
-}
+pub mod events;
+use events::{ EventHandler, Dispatcher };
 
 macro_rules! read_varuint_and_dec {
     ($reader:ident, $size:ident) => {
@@ -33,123 +30,9 @@ macro_rules! parse_and_dispatch {
     ($ident:ident, $reader:ident, $dispatcher:ident) => {
         {
             let event = $ident::parse_from_reader($reader)?;
-            $dispatcher.dispatch(&event);
+            $dispatcher.dispatch(&event)?;
         }
     };
-}
-
-macro_rules! on_fn {
-    ($($ident:ident => $ty:ty);+) => ($(
-        fn $ident(&self, _: &$ty) {}
-    )+);
-}
-
-macro_rules! impl_dispatch {
-    ($($ident:ident => $ty:ty);+) => ($(
-        impl<E: EventHandler> Dispatcher<$ty> for E {
-            fn dispatch(&self, event: &$ty) {
-                self.$ident(event);
-            }
-        }
-    )+);
-}
-
-pub trait EventHandler {
-    on_fn! {
-        on_dem_header => DemHeader;
-        on_packet_info => PacketInfo;
-        on_server_class => ServerClass;
-
-        on_nop => CNETMsg_NOP;
-        on_disconnect => CNETMsg_Disconnect;
-        on_file => CNETMsg_File;
-        on_split_screen_user => CNETMsg_SplitScreenUser;
-        on_tick => CNETMsg_Tick;
-        on_string_cmd => CNETMsg_StringCmd;
-        on_set_con_var => CNETMsg_SetConVar;
-        on_signon_state => CNETMsg_SignonState;
-        on_player_avatar_data => CNETMsg_PlayerAvatarData;
-
-        on_server_info => CSVCMsg_ServerInfo;
-        on_send_table => CSVCMsg_SendTable;
-        on_class_info => CSVCMsg_ClassInfo;
-        on_set_pause => CSVCMsg_SetPause;
-        on_create_string_table => CSVCMsg_CreateStringTable;
-        on_update_string_table => CSVCMsg_UpdateStringTable;
-        on_voice_init => CSVCMsg_VoiceInit;
-        on_voice_data => CSVCMsg_VoiceData;
-        on_print => CSVCMsg_Print;
-        on_sounds => CSVCMsg_Sounds;
-        on_set_view => CSVCMsg_SetView;
-        on_fix_angle => CSVCMsg_FixAngle;
-        on_crosshair_angle => CSVCMsg_CrosshairAngle;
-        on_bspdecal => CSVCMsg_BSPDecal;
-        on_split_screen => CSVCMsg_SplitScreen;
-        on_user_message => CSVCMsg_UserMessage;
-        on_entity_message => CSVCMsg_EntityMsg;
-        on_game_event => CSVCMsg_GameEvent;
-        on_packet_entities => CSVCMsg_PacketEntities;
-        on_temp_entities => CSVCMsg_TempEntities;
-        on_prefetch => CSVCMsg_Prefetch;
-        on_menu => CSVCMsg_Menu;
-        on_game_event_list => CSVCMsg_GameEventList;
-        on_get_cvar_value => CSVCMsg_GetCvarValue;
-        on_paintmap_data => CSVCMsg_PaintmapData;
-        on_cmd_key_values => CSVCMsg_CmdKeyValues;
-        on_encrypted_data => CSVCMsg_EncryptedData;
-        on_hltv_replay => CSVCMsg_HltvReplay;
-        on_broadcast_command => CSVCMsg_Broadcast_Command
-    }
-}
-
-pub trait Dispatcher<E> {
-    fn dispatch(&self, event: &E);
-}
-
-impl_dispatch! {
-    on_dem_header => DemHeader;
-    on_packet_info => PacketInfo;
-    on_server_class => ServerClass;
-
-    on_nop => CNETMsg_NOP;
-    on_disconnect => CNETMsg_Disconnect;
-    on_file => CNETMsg_File;
-    on_split_screen_user => CNETMsg_SplitScreenUser;
-    on_tick => CNETMsg_Tick;
-    on_string_cmd => CNETMsg_StringCmd;
-    on_set_con_var => CNETMsg_SetConVar;
-    on_signon_state => CNETMsg_SignonState;
-    on_player_avatar_data => CNETMsg_PlayerAvatarData;
-
-    on_server_info => CSVCMsg_ServerInfo;
-    on_send_table => CSVCMsg_SendTable;
-    on_class_info => CSVCMsg_ClassInfo;
-    on_set_pause => CSVCMsg_SetPause;
-    on_create_string_table => CSVCMsg_CreateStringTable;
-    on_update_string_table => CSVCMsg_UpdateStringTable;
-    on_voice_init => CSVCMsg_VoiceInit;
-    on_voice_data => CSVCMsg_VoiceData;
-    on_print => CSVCMsg_Print;
-    on_sounds => CSVCMsg_Sounds;
-    on_set_view => CSVCMsg_SetView;
-    on_fix_angle => CSVCMsg_FixAngle;
-    on_crosshair_angle => CSVCMsg_CrosshairAngle;
-    on_bspdecal => CSVCMsg_BSPDecal;
-    on_split_screen => CSVCMsg_SplitScreen;
-    on_user_message => CSVCMsg_UserMessage;
-    on_entity_message => CSVCMsg_EntityMsg;
-    on_game_event => CSVCMsg_GameEvent;
-    on_packet_entities => CSVCMsg_PacketEntities;
-    on_temp_entities => CSVCMsg_TempEntities;
-    on_prefetch => CSVCMsg_Prefetch;
-    on_menu => CSVCMsg_Menu;
-    on_game_event_list => CSVCMsg_GameEventList;
-    on_get_cvar_value => CSVCMsg_GetCvarValue;
-    on_paintmap_data => CSVCMsg_PaintmapData;
-    on_cmd_key_values => CSVCMsg_CmdKeyValues;
-    on_encrypted_data => CSVCMsg_EncryptedData;
-    on_hltv_replay => CSVCMsg_HltvReplay;
-    on_broadcast_command => CSVCMsg_Broadcast_Command
 }
 
 fn parse_net_command<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher: &D, command: NET_Messages) -> Result<(), Error> {
@@ -222,7 +105,7 @@ fn parse_command<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher: &
 
 fn parse_packet<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher: &D) -> Result<(), Error> {
     let packet_info = PacketInfo::parse(reader)?;
-    dispatcher.dispatch(&packet_info);
+    dispatcher.dispatch(&packet_info)?;
     let data_header = DataHeader::parse(reader)?;
 
     let mut packet_size = data_header.size as usize;
@@ -252,7 +135,7 @@ fn parse_datatables<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher
         let datatable_size = read_varuint_and_dec!(reader, data_size) as usize;
 
         let message = CSVCMsg_SendTable::parse_from_reader(&mut reader.take(datatable_size as u64))?;
-        dispatcher.dispatch(&message);
+        dispatcher.dispatch(&message)?;
 
         data_size -= datatable_size;
 
@@ -293,7 +176,7 @@ fn parse_datatables<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher
             datatable
         };
 
-        dispatcher.dispatch(&server_class);
+        dispatcher.dispatch(&server_class)?;
     }
 
     assert_eq!(reader.read(&mut [0u8; 1])?, 0);
@@ -302,7 +185,7 @@ fn parse_datatables<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher
 
 pub fn parse_dem_file<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher: &D) -> Result<(), Error> {
     let header = DemHeader::parse(reader)?;
-    dispatcher.dispatch(&header);
+    dispatcher.dispatch(&header)?;
 
     loop {
         let command_header = CommandHeader::parse(reader)?;

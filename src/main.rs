@@ -1,13 +1,13 @@
 use std::{fs::File, io::BufReader};
 
-use demo::{Error, EventHandler, events::*, parse_dem_file};
+use demo::{Error, events::*, parse_dem_file};
 
-#[derive(Default)]
-struct Handler {}
-
-impl EventHandler for Handler {
-    fn on_string_cmd(&self, event: &CNETMsg_StringCmd) {
-        println!("{:?}", event);
+struct NoOpHandler;
+impl EventHandler for NoOpHandler {}
+impl UserMessageEventHandler for NoOpHandler {
+    fn on_damage(&self, event: &CCSUsrMsg_Damage) -> Result<(),Error> {
+        println!("Damage {:?}", event);
+        Ok(())
     }
 }
 
@@ -15,7 +15,7 @@ fn main() -> Result<(), Error> {
     let file = File::open("example.dem")?;
     let mut reader = BufReader::new(file);
 
-    let dispatcher = Handler::default();
+    let dispatcher = UserMessageDecoder(NoOpHandler);
     parse_dem_file(&mut reader, &dispatcher)?;
 
     Ok(())
