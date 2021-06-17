@@ -13,7 +13,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - name: Install protobuf-compiler
+      run: sudo apt-get install protobuf-compiler
+    - name: Check version of protoc
+      run: protoc --version
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - name: Build
       run: cargo build --verbose
     - name: Run tests
