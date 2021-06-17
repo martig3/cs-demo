@@ -245,6 +245,8 @@ fn parse_datatables<R: Read + Sized, D: EventHandler>(reader: &mut R, dispatcher
     let data_header = DataHeader::parse(reader)?;
     let mut data_size = data_header.size as usize;
 
+    let reader = &mut reader.take(data_size as u64);
+
     while data_size > 0 {
         let _datatable_type = read_varuint_and_dec!(reader, data_size);
         let datatable_size = read_varuint_and_dec!(reader, data_size) as usize;

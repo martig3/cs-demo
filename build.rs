@@ -1,8 +1,19 @@
 
-extern crate protoc_rust;
+#[cfg(all(feature = "protoc", not(feature = "pure")))]
 use protoc_rust::{ Codegen, Customize };
 
+#[cfg(all(feature = "pure", not(feature = "protoc")))]
+use protobuf_codegen_pure::{ Codegen, Customize };
+
 fn main() {
+    if cfg!(feature = "pure") == cfg!(feature = "protoc") {
+        panic!("You must enable either the protoc or the pure feature but not both.");
+    }
+
+    if cfg!(feature = "pure") {
+        panic!("Unfortunately, protobuf-codegen-pure does not properly generate code for CS:GO proto files (yet?).");
+    }
+
     Codegen::new()
         .out_dir("src/protos")
         .inputs(&[
